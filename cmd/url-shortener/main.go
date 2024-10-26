@@ -1,11 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 
 	"github.com/ecoarchie/url-shortener/cmd/internal/config"
+	"github.com/ecoarchie/url-shortener/cmd/internal/http-server/handlers/url/save"
 	mvlogger "github.com/ecoarchie/url-shortener/cmd/internal/http-server/middleware/logger"
 	"github.com/ecoarchie/url-shortener/cmd/internal/lib/logger/slg"
 	"github.com/ecoarchie/url-shortener/cmd/internal/sqlite"
@@ -23,8 +24,6 @@ func main() {
 	// init config
 	cfg := config.MustLoad()
 
-	fmt.Println(cfg)
-
 	// init logger: log/slog
 	logger := setupLogger(cfg.Env)
 	logger.Info("starting the app", slog.String("env", cfg.Env))
@@ -37,7 +36,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	//TODO init router: chi, chi render
+	// init router: chi, chi render
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
 	router.Use(middleware.Logger) // chi logger
@@ -45,7 +44,22 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	//TODO run server
+	router.Post("/url", save.New(logger, storage))
+
+	logger.Info("starting server", slog.String("address", cfg.Address))
+
+	srv := &http.Server{
+		Addr:         cfg.Address,
+		Handler:      router,
+		ReadTimeout:  cfg.HTTPServer.Timeout,
+		WriteTimeout: cfg.HTTPServer.Timeout,
+		IdleTimeout:  cfg.HTTPServer.IdleTimeout,
+	}
+
+	// run server
+	if err := srv.ListenAndServe(); err != nil {
+		logger.Error("failed to start server")
+	}
 }
 
 func setupLogger(env string) *slog.Logger {

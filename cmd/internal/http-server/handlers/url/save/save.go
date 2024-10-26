@@ -1,12 +1,14 @@
 package save
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
 	resp "github.com/ecoarchie/url-shortener/cmd/internal/lib/api/response"
 	"github.com/ecoarchie/url-shortener/cmd/internal/lib/logger/slg"
 	"github.com/ecoarchie/url-shortener/cmd/internal/lib/random"
+	"github.com/ecoarchie/url-shortener/cmd/internal/storage"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
@@ -60,5 +62,19 @@ func New(logger *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 		if alias == "" {
 			alias = random.RandomString(aliasLength)
 		}
+
+		id, err := urlSaver.SaveURL(req.URL, alias)
+		if errors.Is(err, storage.ErrURLExists) {
+			logger.Info("url already exists", slog.String("url", req.URL))
+			render.JSON(w, r, resp.Error("url already exists"))
+			return
+		}
+
+		logger.Info("url added", slog.Int64("id", id))
+
+		render.JSON(w, r, Response{
+			Response: resp.OK(),
+			Alias: alias,
+		})
 	}
 }
