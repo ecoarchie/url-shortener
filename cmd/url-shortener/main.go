@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"github.com/ecoarchie/url-shortener/cmd/internal/config"
+	"github.com/ecoarchie/url-shortener/cmd/internal/lib/logger/slg"
+	"github.com/ecoarchie/url-shortener/cmd/internal/sqlite"
 )
 
 const (
@@ -15,17 +17,29 @@ const (
 )
 
 func main() {
+	// init config 
 	cfg := config.MustLoad()
 
 	fmt.Println(cfg)
 
-	//TODO init logger: log/slog
+	// init logger: log/slog
 	logger := setupLogger(cfg.Env)
 	logger.Info("starting the app", slog.String("env", cfg.Env))
 	logger.Debug("debug messages enabled")
 
-	//TODO init storage: sqlite
-
+	// init storage: sqlite
+	storage, err := sqlite.New(cfg.StoragePath)
+	if err != nil {
+		logger.Error("failed to initialize storage", slg.Err(err))
+		os.Exit(1)
+	}
+	// _ = storage
+	id, err := storage.SaveURL("www.example2.ru", "test2")
+	if err != nil {
+		fmt.Println("error saving url", err.Error())
+		os.Exit(1)
+	}
+	fmt.Printf("id = %d", id)
 	//TODO init router: chi, chi render
 
 	//TODO run server
