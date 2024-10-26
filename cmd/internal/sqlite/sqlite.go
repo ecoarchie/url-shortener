@@ -2,13 +2,12 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/ecoarchie/url-shortener/cmd/internal/storage"
 	"github.com/mattn/go-sqlite3"
-	_ "github.com/mattn/go-sqlite3"
 )
-
 
 type Storage struct {
 	db *sql.DB
@@ -65,4 +64,44 @@ func (s *Storage) SaveURL(urlToSave, alias string) (int64, error) {
 	}
 
 	return id, nil
+}
+
+func (s *Storage) GetURL(alias string) (string, error) {
+	const op = "storage.sqlite.GetURL"
+	stmt, err := s.db.Prepare(`
+		SELECT url FROM url WHERE alias = $1;
+	`)
+
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	var url string
+	err = stmt.QueryRow(alias).Scan(&url)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", fmt.Errorf("%s: %w", op, storage.ErrURLNotFound)
+		}
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	return url, nil
+}
+
+func (s *Storage) DeleteURL(alias string) error {
+	const op = "storage.sqlite.DeleteURL"
+	stmt, err := s.db.Prepare(`
+		DELETE FROM url WHERE alias = $1;
+	`)
+
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	_, err = stmt.Exec(alias)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
 }

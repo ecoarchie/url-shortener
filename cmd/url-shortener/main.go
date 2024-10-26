@@ -6,8 +6,11 @@ import (
 	"os"
 
 	"github.com/ecoarchie/url-shortener/cmd/internal/config"
+	mvlogger "github.com/ecoarchie/url-shortener/cmd/internal/http-server/middleware/logger"
 	"github.com/ecoarchie/url-shortener/cmd/internal/lib/logger/slg"
 	"github.com/ecoarchie/url-shortener/cmd/internal/sqlite"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 const (
@@ -17,7 +20,7 @@ const (
 )
 
 func main() {
-	// init config 
+	// init config
 	cfg := config.MustLoad()
 
 	fmt.Println(cfg)
@@ -33,14 +36,12 @@ func main() {
 		logger.Error("failed to initialize storage", slg.Err(err))
 		os.Exit(1)
 	}
-	// _ = storage
-	id, err := storage.SaveURL("www.example2.ru", "test2")
-	if err != nil {
-		fmt.Println("error saving url", err.Error())
-		os.Exit(1)
-	}
-	fmt.Printf("id = %d", id)
+
 	//TODO init router: chi, chi render
+	router := chi.NewRouter()
+	router.Use(middleware.RequestID)
+	router.Use(middleware.Logger) // chi logger
+	router.Use(mvlogger.New(logger))
 
 	//TODO run server
 }
