@@ -42,6 +42,8 @@ func main() {
 	router.Use(middleware.RequestID)
 	router.Use(middleware.Logger) // chi logger
 	router.Use(mvlogger.New(logger))
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.URLFormat)
 
 	//TODO run server
 }
