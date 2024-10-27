@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"github.com/ecoarchie/url-shortener/cmd/internal/config"
+	deleter "github.com/ecoarchie/url-shortener/cmd/internal/http-server/handlers/url/deleter"
+	"github.com/ecoarchie/url-shortener/cmd/internal/http-server/handlers/url/redirect"
 	"github.com/ecoarchie/url-shortener/cmd/internal/http-server/handlers/url/save"
 	mvlogger "github.com/ecoarchie/url-shortener/cmd/internal/http-server/middleware/logger"
 	"github.com/ecoarchie/url-shortener/cmd/internal/lib/logger/slg"
@@ -42,9 +44,11 @@ func main() {
 	router.Use(middleware.Logger) // chi logger
 	router.Use(mvlogger.New(logger))
 	router.Use(middleware.Recoverer)
-	router.Use(middleware.URLFormat)
+	router.Use(middleware.URLFormat) // allows working with url vars
 
 	router.Post("/url", save.New(logger, storage))
+	router.Get("/{alias}", redirect.New(logger, storage))
+	router.Delete("/{alias}", deleter.New(logger, storage))
 
 	logger.Info("starting server", slog.String("address", cfg.Address))
 
