@@ -1,19 +1,21 @@
 package main
 
 import (
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
 
-	"github.com/ecoarchie/url-shortener/cmd/internal/config"
-	deleter "github.com/ecoarchie/url-shortener/cmd/internal/http-server/handlers/url/deleter"
-	"github.com/ecoarchie/url-shortener/cmd/internal/http-server/handlers/url/redirect"
-	"github.com/ecoarchie/url-shortener/cmd/internal/http-server/handlers/url/save"
-	mvlogger "github.com/ecoarchie/url-shortener/cmd/internal/http-server/middleware/logger"
-	"github.com/ecoarchie/url-shortener/cmd/internal/lib/logger/slg"
-	"github.com/ecoarchie/url-shortener/cmd/internal/sqlite"
+	"github.com/ecoarchie/url-shortener/internal/config"
+	deleter "github.com/ecoarchie/url-shortener/internal/http-server/handlers/url/deleter"
+	"github.com/ecoarchie/url-shortener/internal/http-server/handlers/url/redirect"
+	"github.com/ecoarchie/url-shortener/internal/http-server/handlers/url/save"
+	mvlogger "github.com/ecoarchie/url-shortener/internal/http-server/middleware/logger"
+	"github.com/ecoarchie/url-shortener/internal/lib/logger/slg"
+	"github.com/ecoarchie/url-shortener/internal/sqlite"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -24,6 +26,10 @@ const (
 
 func main() {
 	// init config
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 	cfg := config.MustLoad()
 
 	// init logger: log/slog
@@ -46,9 +52,16 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat) // allows working with url vars
 
-	router.Post("/url", save.New(logger, storage))
+	router.Route("/url", func(r chi.Router) {
+		r.Use(middleware.BasicAuth("url-shortener", map[string]string{
+			cfg.HTTPServer.User: cfg.HTTPServer.Password, // pair for 1 user-password
+		}))
+
+		r.Post("/", save.New(logger, storage))
+		r.Delete("/{alias}", deleter.New(logger, storage))
+	})
+
 	router.Get("/{alias}", redirect.New(logger, storage))
-	router.Delete("/{alias}", deleter.New(logger, storage))
 
 	logger.Info("starting server", slog.String("address", cfg.Address))
 
