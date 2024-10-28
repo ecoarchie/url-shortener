@@ -1,1 +1,4 @@
 .env
+storage/
+tests/
+tmp/
